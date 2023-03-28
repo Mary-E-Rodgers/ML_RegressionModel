@@ -1,0 +1,434 @@
+---
+title: "Rodgers_Assignment2"
+author: "Mary E. Rodgers"
+date: '2023-03-07'
+output: 
+
+  html_document: 
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **Introduction**
+
+This markdown shows the process of analyzing language data derived from language transcripts of children. Specifically, we
+
+
+# **Research Questions**
+
+Our primary research question is:
+1) 
+
+
+These research questions will answered through
+
+# **Data**
+The current data set was obtained from kaggle.com, containing 1163 instances of language data derived from transcripts of children between the ages of four to fifteen completing a wordless picture task. Of the 1163 children, 919 were typically developing (TD) and 346 had a specific language impairment (SLI). The data set was created through the combination of three existing data sets, which contained similar metrics of TD and SLI transcript data.
+
+Source: <https://www.kaggle.com/datasets/dgokeeffe/specific-language-impairment>
+
+# **Data Wrangling**
+
+## *Preparing your data*
+
+### Preparing R
+
+0. Connect to CRAN mirror
+```{r}
+options(repos=c(CRAN="https://mirrors.nics.utk.edu/cran/"))
+```
+
+
+1.  Clear the global environment
+
+```{r}
+rm(list=ls(all=TRUE)) 
+# Alternatively, you can select the 'sweep' button in the global environment
+```
+
+![](images/sweep.PNG){width="84"}
+
+2.  Call in the necessary R packages: tidyverse, ggplot2, caret, car, corrplot, reliampo, PerformanceAnalytics, glmnet
+
+*If an error occurs, make sure the packages are installed by using install.packages("packagename") where the name of your package goes in the quotation marks
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(caret)
+library(car) # this is for variance inflation factor (VIF)
+library(corrplot) # this package is for visualizing your correlation
+library(relaimpo) #this is for variable importance
+library(PerformanceAnalytics)
+library(glmnet)
+```
+
+### Importing your Data
+
+1.  Download the CSV titled "all_data_R".
+
+    [Kaggle Data Set] (https://www.kaggle.com/datasets/dgokeeffe/specific-language-impairment)
+
+2.  Save the file with your R software so that it imports properly.
+
+3.  Call in the data frame Note: this part isn't actually necessary, but let's keep it for later
+
+```{r}
+all_data_R_df <- read.csv("all_data_R.csv", header = TRUE) # our data frame is now called "all_data_R_df"
+```
+
+4.  Create a tibble from the data frame
+
+```{r}
+all_data_R_tib <- read_csv("all_data_R.csv") # our tibble is now called "all_data_R_tib"
+```
+
+### Cleaning your Data NEED TO CREATE NEW VARIABLES, ROW NUMBERS AND ?
+
+1.  Enable messages and warnings about your code
+2.  Call in the tibble.
+3.  Select the columns you want.
+4.  Create the outcome variable
+5.  Display the structure.
+
+```{r message=TRUE, warning=TRUE}
+# enables messages and warnings about your code
+all_data_R_tib <- read_csv("all_data_R.csv") # creates your tibble from the csv
+
+all_data_R_tib <- all_data_R_tib %>% 
+  dplyr::select (Y, age, child_TNW, child_TNS, examiner_TNW, fillers, mlu_words, mlu_morphemes, mlu100_utts, verb_utt, articles, n_v, n_aux) # calls in the columns you want, removed group ()
+str(all_data_R_tib) # this displays the structure of R objects, in this case, our clean tibble
+```
+
+#### Visually check your data
+
+1.  Look at the tibble to make sure everything looks right
+
+```{r}
+print(all_data_R_tib)
+```
+
+# **Analysis**
+
+## *Correlation*
+
+### Correlations in the entire tibble
+
+1.  Look at the correlations in the entire tibble
+
+```{r}
+cor(all_data_R_tib) # this creates a correlation between your entire tibble
+```
+
+#### Visualizing the correlations in the entire tibble
+
+1. Create the correlation matrix
+
+```{r}
+cor_matrix <- abs(cor(all_data_R_tib)) #absolute values
+```
+
+2. Visualize the correlation matrix
+
+```{r}
+corrplot(cor_matrix, 
+         type="lower", #put color strength on bottom
+         tl.pos = "ld", #Character or logical, position of text labels, 'ld'(default if type=='lower') means left and diagonal,
+         tl.cex = 0.4, #Numeric, for the size of text label (variable names).
+         method="color", 
+         addCoef.col="black", 
+         diag=FALSE,
+         tl.col="black", #The color of text label.
+         tl.srt=45, #Numeric, for text label string rotation in degrees, see text
+         is.corr = FALSE, #if you include correlation matrix
+         #order = "hclust", #order results by strength
+         #col=gray.colors(100), #in case you want it in gray...
+         number.digits = 2) #number of digits after decimal
+```
+
+
+3. Correlation, Scatterplot, and Histogram
+
+```{r}
+chart.Correlation(all_data_R_tib, histogram = TRUE, method = "pearson")
+```
+
+
+## *Linear Regression*
+
+Run a regression model on your data using
+
+- Cross-validation
+- Faeture selection
+- Make sure you control for
+  - Outliers
+  - Multicollinearity
+  - Suppression effects
+
+### Test Assumptions
+
+1. Linearity: Scatterplots
+
+```{r}
+plot(all_data_R_reg, which = 1) # why equal 1 ?
+```
+
+2. Homoskedasticity - Are the residuals normally distributed?
+Note: residuals should be blob-like
+
+```{r}
+shapiro.test(residuals(all_data_R_reg))
+plot(all_data_R_reg, which = 2) #qq plot
+```
+
+3.  Multicollinearity - Covariance between predictors
+
+0.7 or above
+
+```{r}
+car::vif(all_data_R_reg) #based on these results, we need to ...
+```
+
+4.  Absence of Influential Data Points - 
+
+```{r}
+
+
+```
+
+5.  Overfitting - Lasso
+
+```{r}
+
+
+```
+
+### Run Regression
+
+1.  Run a regression with all variables
+
+```{r}
+all_data_R_reg <- lm(n_v~ ., all_data_R_tib)
+
+summary(all_data_R_reg)
+str(all_data_R_tib)
+```
+
+2. Run a regression with select variables
+
+```{r}
+all_data_R_reg <- lm(n_v ~ age, child_TNW, child_TNS, examiner_TNW, fillers, mlu_words, mlu_morphemes, mlu100_utts, verb_utt, articles, n_aux, all_data_R_tib)
+
+summary(all_data_R_reg)
+str(all_data_R_tib)
+```
+
+### Visualizing your Regression
+
+1.  Create a scatter plot for the actual and fitted values
+
+```{r}
+actual <- all_data_R_tib$n_v
+fitted <- unname(all_data_R_reg$fitted.values) #would have been a named number vector if unname not used
+
+act_fit <- cbind.data.frame(actual, fitted) #cbind binds the two vectors into a dataframe
+
+
+ggplot(act_fit, aes(x = actual, y = fitted)) +
+  geom_point() +
+  xlab("Actual value") +
+  ylab("Predicted value") +
+  ggtitle("Scatterplot for actual and fitted values") +
+  geom_abline(intercept = 1,
+              slope = 1,
+              color = "gray",
+              size = 2)
+
+```
+
+
+2.  
+
+```{r}
+
+
+```
+
+
+3.  
+
+```{r}
+
+```
+
+4.  
+
+```{r}
+
+
+```
+
+## Logistic Regression
+
+Class instructions
+1. Read and wrangle data.
+2. Make sure outcome variable is binary and is a factor
+3. Check to make sure classes are roughly balanced
+  - If not, undersample a group
+4. Scale numeric predictor variables
+5. Get descriptives (mean/SD) for numeric predictor variables so you can compare differences in mean scores with binary outcome variable. This will be used for selecting variables based on multicollinearity and suppression effects.
+6. Run a correlation matrix on numeric predictor variables
+7. Remove variables that are multi-collinear. If two variables are multi-collinear, keep the variable that has the strongest delta value with the outcome variable as found in step 5 (i.e., which of the two variables shows a greater mean difference score between the binary predictor outcomes). 
+8. Run a logistic regression using glm function
+9. Check for suppression effects based on mean scores reported in step 5 and remove variables with suppression effects one at a time based on Z value (remove variable with lowest Z value)
+10. Remove non-significant variables one at a time based on Z value (remove variable with lowest Z value)
+11. Get final logistic regression model.
+12. Interpret log-odds and probabilities
+13. Create new variables for actual scores and predicted scores. Predicted scores are based on the predicted probabilities reported in step 10 above. Make sure these variables are converted to factors.
+14. Create a confusion matrix using confusionMatrix function. Report recall, precision, F1 and the confusion matrix.
+15. Visualize out with mosaic plot.
+
+### Scale Variables
+
+```{r}
+library(psych)
+
+```
+
+### Get descriptives
+
+```{r}
+
+
+
+```
+
+### Correlation among Variables for Multi-Collinearity
+
+```{r}
+
+
+
+```
+
+### The Logistic Regression
+
+```{r}
+
+
+
+```
+
+### Prune the model
+
+```{r}
+
+
+
+```
+
+### Interpret the model
+
+1. Get log odds and probabilities
+
+```{r}
+
+
+
+```
+
+Get residuals and predictors
+
+```{r}
+
+
+```
+
+Confusion matrices and kappas
+
+```{r}
+
+
+```
+
+
+#### Visualize 
+
+Mosaic plot
+
+```{r}
+
+
+```
+
+## Machine Learning
+
+1.  Create training and test sets
+
+```{r}
+
+
+```
+
+class example
+
+set.seed(1234) #initialize a pseudorandom number generator so that train and test set will be the same each time you call functions
+
+### create new variable in tibble for division into training and test sets
+final_tib <- final_tib %>% 
+  mutate(id = row_number()) # creates a new variable
+
+### 70% of data as training set 
+train_set <- final_tib %>% 
+  sample_frac(0.70) #which to select (the 70%)
+
+### 30% of data test set 
+test_set  <- anti_join(final_tib, train_set, by = 'id') 
+#anti_join, basically says grab what is in final_tib that is not in train_set for remaining 30%
+
+### remove unnecessary variables 
+train_set <- train_set %>% 
+  select(-id)
+
+test_set <- test_set %>% 
+  select(-id)
+
+2.  
+
+```{r}
+
+
+```
+
+
+3.  
+
+```{r}
+
+```
+
+4.  
+
+```{r}
+
+
+```
+
+
+# **Discussion**
+
+
+
+# **References**
+  D. Wetherell, N. Botting, and G. Conti-Ramsden, “Narrative skills in adolescents with a history of SLI in relation to non-verbal IQ scores,” Child Language Teaching and Therapy, vol. 23, no. 1, pp. 95–113, 2007.
+
+  P. Schneider, D. Hayward, and R. V. Dub, “Storytelling from pictures using the Edmonton Narrative Norms Instrument,” 2006.
+
+  R. Gillam and N. Pearson, Test of Narrative Language. Austin, TX: Pro-Ed Inc., 2004.
+
+
+\`\`\`
