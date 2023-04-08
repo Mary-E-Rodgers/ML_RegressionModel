@@ -1,0 +1,395 @@
+---
+title: "Rodgers_Assignment2"
+author: "Mary E. Rodgers"
+date: '2023-04-07'
+output: 
+
+  html_document: 
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **Introduction**
+
+Specific language impairment (SLI) is a diagnosis given to children without hearing loss that experience delays in language development, with the ability (NIH, 2019). SLI is diagnosed in 7-10% of children, effecting speaking, listening, reading and writing skills (NIH, 2019). Specifically, SLI can affect the development of vocabulary, grammar, morphemes (i.e., a morphological unit of language) and has a positive correlation with challenging behavior (Curtis et al., 2017; Ervin, 2001). Even without a comorbid intellectual disability, children with SLI are treated with lower expectations by adults such as teachers and speech-language pathologists (Rice et al., 1993).
+
+Previous measures of child linguistic growth from transcripts have used measures such as mean length of utterance (MLU) and total number of words (TNW; Hampton et al., 2017; Roberts et al., 2012). More recent research has suggested that measures such as the number of unique verbs are a better measure of linguistic growth (Hadley, 2020; Hadley et al., 2018).
+
+This markdown shows the process of analyzing the summary language data derived from language transcripts of child narratives completing wordless picture tasks. The sample consists of both TD and SLI diagnosed children. We will explore the summary level data provided for the relationships between previously studied measures of linguistic growth (e.g., mean length of utterance and total number of words) and the more recently suggested measure of
+
+## *Research Questions*
+
+Our primary research question is: 1) What linguistic metrics predict the number of verbs children use?
+
+This research question will be answered through linear regression, using both a statistical and machine learning approach.
+
+## *Data*
+
+The current data set was obtained from kaggle.com from user DGOKE1, containing 1163 instances of language data derived from transcripts of children between the ages of four to fifteen completing a wordless picture task. This particular data set was created from three different data sets. Of the 1163 children, 919 were TD and 346 had a diagnosis of SLI. The data set was created through the combination of three existing data sets, which contained similar metrics of TD and SLI transcript data.
+
+The metrics of interest include:
+
+-   Y, a label indicating 0 for TD children and 1 for SLI diagnosed children.
+
+-   age, the age of the child in months.
+
+-   Child_TNW, the total number of words said by the child in the transcript.
+
+-   child_TNS, the total number of sentences said by the child in the transcript.
+
+-   examiner_TNW, the total number of words spoken by the examiner.
+
+-   fillers, the number of filler words (e.g., um, uh) said by the child in the transcript.
+
+-   mlu_words, the mean length of the words said by the child in the transcript.
+
+-   mlu_morphemes, the mean length of sentences said by the child in the transcript.
+
+-   verb_utt, the number of utterances consisting of verbs said by the child in the transcript.
+
+-   articles, the number of articles (i.e., a, an, the) said by the child in the transcript.
+
+-   n_v, the number of verbs said by the child in the transcript.
+
+-   n_aux, the number of auxillary verbs said by the child in the transcript.
+
+Source: <https://www.kaggle.com/datasets/dgokeeffe/specific-language-impairment>
+
+## *Git Hub*
+
+<https://github.com/Mary-E-Rodgers/ML_RegressionModel.git>
+
+# **Methods**
+
+## *1. Data wrangling*
+
+### Preparing R
+
+First we connected to the CRAN mirror.
+
+```{r}
+options(repos=c(CRAN="https://mirrors.nics.utk.edu/cran/"))
+```
+
+Then the global environment was cleared to ensure a clean work space.
+
+```{r}
+rm(list=ls(all=TRUE)) 
+```
+
+Alternatively, you can select the 'sweep' button in the global environment
+
+![](images/sweep.PNG){width="84"}
+
+The necessary R packages can then be pulled in.
+
+\*If an error occured, we could make sure the packages are installed by using install.packages("packagename") where the name of the package goes in the quotation marks
+
+```{r}
+library(tidyverse) # this package contains tools for data cleaning and organization
+library(ggplot2) # this is used for data visualization
+library(dplyr) # this contains tools for data manipulation
+library(caret) # this contains functions for classification and regression raining
+library(car) # this is for variance inflation factor (VIF)
+library(corrplot) # this package is for visualizing your correlation
+library(relaimpo) # this is for variable importance
+library(PerformanceAnalytics) # this contains tools for performance and risk analysis
+library(glmnet) # this is for modeling generalized linear models
+library(psych) # this is for descriptive statistics
+library(relaimpo) # this is for calculating metrics for linear modeling
+```
+
+### Importing your Data
+
+The .csv data set was downloaded and saved with the R software so that it imported properly.
+
+Source: [Kaggle Data Set] (<https://www.kaggle.com/datasets/dgokeeffe/specific-language-impairment>)
+
+A tibble was created from the .csv file, named "all_data_R\_tib".
+
+```{r}
+all_data_R_tib <- read_csv("all_data_R.csv")
+```
+
+### Cleaning your Data
+
+Messages and warnings about the code were enabled, and the tibble was called in. This tibble contained all of variables from the original .csv file that was downloaded. The variable of interests were selected using dplyr, and the structure was displayed.
+
+```{r message=TRUE, warning=TRUE}
+# enables messages and warnings about your code
+all_data_R_tib <- read_csv("all_data_R.csv") # creates your tibble from the csv
+
+
+
+all_data_R_tib <- all_data_R_tib %>% 
+  dplyr::select (n_v, age, child_TNW, child_TNS, examiner_TNW, fillers, mlu_words, mlu_morphemes, verb_utt, articles, n_aux) # calls in the columns you want, removed group ()
+str(all_data_R_tib) # this displays the structure of R objects, in this case, our clean tibble
+```
+
+### Scaling the data
+
+The data in the tibble were scaled.
+
+```{r}
+all_data_R_tib_sc <- all_data_R_tib %>% 
+  na.omit() %>% 
+  mutate_at(c(1:11), ~(scale(.) %>% as.vector))
+
+str(all_data_R_tib_sc)
+```
+
+#### Visually checking the data
+
+The tibble was visually checked.
+
+```{r}
+print(all_data_R_tib_sc)
+```
+
+## *2. Checking for multi-collinearity*
+
+### *Correlation*
+
+#### Correlations in the entire tibble
+
+A correlation was run on the entire tibble.
+
+```{r}
+cor(all_data_R_tib_sc) # this creates a correlation between your entire tibble
+```
+
+#### Visualizing the correlations in the entire tibble
+
+A correlation matrix of the entire tibble was created.
+
+```{r}
+cor_matrix <- abs(cor(all_data_R_tib_sc))
+```
+
+The correlation matrix of the entire tibble was visualized.
+
+```{r}
+corrplot(cor_matrix, 
+         type="lower", #put color strength on bottom
+         tl.pos = "ld", #Character or logical, position of text labels, 'ld'(default if type=='lower') means left and diagonal,
+         tl.cex = 0.5, #Numeric, for the size of text label (variable names).
+         method="color", 
+         addCoef.col="black", 
+         diag=FALSE,
+         tl.col="black", #The color of text label.
+         tl.srt=45, #Numeric, for text label string rotation in degrees, see text
+         is.corr = FALSE, #if you include correlation matrix
+         #order = "hclust", #order results by strength
+         #col=gray.colors(100), #in case you want it in gray...
+         number.digits = 2) #number of digits after decimal
+```
+
+### Check for multi-collinearity
+
+Using a statistical approach, multi-collinearity was checked by looking for correlations of the entire tibble and identifying anything with a correlation of 0.7 or above. Child TNS is correlated with Child TNW at 0.93. Child TNS is also correlated with articles at 0.72. Due to this, child TNS was removed from the model and run again.
+
+```{r}
+model2_tib <- read_csv("all_data_R.csv") # creating the new tibble
+
+model2_tib <- model2_tib %>% #selecting the same variables but without child TNS
+  dplyr::select (n_v, age, child_TNW, examiner_TNW, fillers, mlu_words, mlu_morphemes, verb_utt, articles, n_aux)
+
+model2_tib_sc <- model2_tib %>% # scaling the data again
+  na.omit() %>% 
+  mutate_at(c(1:10), ~(scale(.) %>% as.vector))
+
+cor(model2_tib_sc) #running the correlation again
+```
+
+The mlu of morphemes is correlated with the mlu of words at 0.99 and with utterances with a verb at 0.84, so the model is run again without mlu of morphemes.
+
+```{r}
+model3_tib <- read_csv("all_data_R.csv") 
+
+model3_tib <- model3_tib %>% #selecting the same variables but without mlu of morphemes.
+  dplyr::select (n_v, age, child_TNW, examiner_TNW, fillers, mlu_words, verb_utt, articles, n_aux)
+
+model3_tib_sc <- model3_tib %>%
+  na.omit() %>% 
+  mutate_at(c(1:9), ~(scale(.) %>% as.vector))
+
+cor(model3_tib_sc)
+```
+
+The mlu of words was correlated with utterances containing a verb at 0.84, so the model is run again without mlu of words.
+
+```{r}
+model4_tib <- read_csv("all_data_R.csv") 
+
+model4_tib <- model4_tib %>% #selecting the same variables but without mlu of words.
+  dplyr::select (n_v, age, child_TNW, examiner_TNW, fillers, verb_utt, articles, n_aux)
+
+model4_tib_sc <- model4_tib %>%
+  na.omit() %>% 
+  mutate_at(c(1:8), ~(scale(.) %>% as.vector))
+
+cor(model4_tib_sc)
+```
+
+Model four does not contain any predictors correlating with each other above 0.7, indicating that multi-collinearity is no longer present.
+
+#### Visualizing the new model
+
+A correlation matrix of model four was created.
+
+```{r}
+cor_matrix2 <- abs(cor(model4_tib_sc))
+```
+
+The correlation matrix of model four was visualized to assist in verifying no correlations over 0.7 are present.
+
+```{r}
+corrplot(cor_matrix2, 
+         type="lower", #put color strength on bottom
+         tl.pos = "ld", #Character or logical, position of text labels, 'ld'(default if type=='lower') means left and diagonal,
+         tl.cex = 0.5, #Numeric, for the size of text label (variable names).
+         method="color", 
+         addCoef.col="black", 
+         diag=FALSE,
+         tl.col="black", #The color of text label.
+         tl.srt=45, #Numeric, for text label string rotation in degrees, see text
+         is.corr = FALSE, #if you include correlation matrix
+         number.digits = 2) #number of digits after decimal
+```
+
+## *3. Cross-validated model with feature selection*
+
+A machine learning approach was used to create a cross-validated model with feature selection using the 10 fold lm method using caret.
+
+```{r}
+set.seed(1234)
+
+train.control <- trainControl(method = "cv", number = 10) 
+# cv = cross validated, 10 = 10 fold
+
+machinemodel_1 <- train(n_v ~ ., data = model4_tib_sc,
+                       method = "leapSeq", #stepwise selection 
+                       tuneGrid = data.frame(nvmax = 1:7),
+                       trControl = train.control)
+
+summary(machinemodel_1) 
+
+machinemodel_1$bestTune 
+#the three best variables of the machine learning models                     
+machinemodel_1$results
+summary(machinemodel_1$finalModel)
+```
+
+From the machine model, the coefficients can then be checked for suppression effects.
+
+## *4. Suppression Effects*
+
+The model was checked for suppression effects by looking at the correlations between the predictors and the outcome variable, number of verbs, to see if any negative correlations existed. Suppression effects were found in the predictor variable of verbal utterances.
+
+```{r}
+coef(machinemodel_1$finalModel, 3)
+```
+
+## *5. Rerun the model if suppression effects exist and check for suppression effects again*
+
+The variable of number of verbal utterances causing the suppression effect was removed and the new model was ran. Again, we checked for suppression effects. No suppression effects were found, and the significant predictors were identified (child total number of words, and number of articles)
+
+```{r}
+str(model4_tib_sc)
+
+model4_tib_sc_2 <- model4_tib_sc[, c(1:5, 7:8)] # creates a new model that excludes verbal utterances (variable 6)
+
+str(model4_tib_sc_2)
+
+machinemodel_2 <- train(n_v ~ ., data = model4_tib_sc_2,
+                       method = "leapSeq", #stepwise selection 
+                       tuneGrid = data.frame(nvmax = 1:6),
+                       trControl = train.control)
+
+summary(machinemodel_2) 
+
+coef(machinemodel_2$finalModel2)
+
+machinemodel_2$bestTune 
+
+#the three best variables of the machine learning models                     
+machinemodel_2$results
+summary(machinemodel_2$finalModel)
+coef(machinemodel_2$finalModel2)
+```
+
+## *6. Producing the final model using cross-validation*
+
+Using the machine learning approach with cross-validation and accounting for suppression effects, the second model produced contained only the significant predictors of child total number of words and number of articles.
+
+The RMSE for child total number of words was 0.81, with an r squared of 0.33. The RMSE for number of articles was 0.79, with an r squared of 0.36.
+
+```{r}
+summary(machinemodel_2$finalModel)
+```
+
+## *7. Produce the final model without cross-validation to get statistical information*
+
+A final model without cross-validation was written for the linear model to produce the statistical metrics.
+
+The t value for child total number of words was 7.92 (p \< .05), and the t value for articles was 12.50 (p \< .05). The F statistic was 323.9.
+
+```{r}
+finalmodel <- lm(n_v ~ child_TNW + articles, data = model4_tib_sc_2)
+
+summary(finalmodel)
+```
+
+## *8. Visualize using a scatter plot*
+
+The final model was visualized by creating a scatter plot.
+
+```{r}
+ggplot(model4_tib_sc_2, aes(x=predict(finalmodel), y= model4_tib_sc_2$n_v)) +
+  geom_point() +
+  geom_abline(intercept=0, slope=1) +
+  labs(x='Predicted Values', y='Actual Values', title='Predicted vs. Actual Values')
+```
+
+# **Discussion**
+
+The answer to our research question, "What linguistic metrics predict the number of verbs children use?", out of the available sample the data support child total number of words and number of articles as being the most predictive by accounting for 69% of the variance observed in the number of verbs.
+
+While checking for multi-collinearity within the initial correlation of the predictor and outcome variables using a statistical approach, child TNS was correlated with Child TNW at 0.93 and with articles at 0.72, so it was removed from the model. The mlu of morphemes was correlated with the mlu of words at 0.99 and with utterances with a verb at 0.84, so it was also removed from the model. Using a machine learning approach with a cross-validated model with feature selection, 10 fold, in caret using LM showed that the predictors of child_TNS, fillers, MLU of words, MLU of morphemes and articles were significant. The model was then checked for suppression effects by looking at the direction of the coefficients. The predictor variable number of verbal utterances was negative when it was expected that all of the coefficients would be positive. Because of this, number of verbal utterances was removed and the model was again run and checked for suppression effects. No suppression effects were found, and the significant predictors of child total number of words and number of articles were identified. In the final model, the RMSE for child total number of words was 0.81 (r2 = 0.33), explaining 33% of the variance observed in the outcome variable of number of verbs. The RMSE for number of articles was 0.79 (r2 = 0.36), explaining 36% of the variance observed in the outcome variable of the number of verbs. Together, child total number of words and number of articles predicted 69% of the variance observed in the outcome variable of the number of verbs. The t value for child total number of words was 7.92 (p \< .05), and the t value for articles was 12.50 (p \< .05), indicating that our coefficient estimate was several standard deviations away from zero. The F statistic was 323.9, increasing our confidence that child total number of words and number of articles are predictive of total number of verbs.
+
+Existing data sets that do not contain the number of verbs but do contain the child total number of words and number of articles could be evaluated for potential increases in the number of verbs by looking at the child total number of words and number of articles. Future research should consider exploring logistic regression on the outcome variable of a diagnosis of SLI to see what available metrics most predict SLI. Other measures of linguistic growth not available in this data set, such as the number of unique subjects, number of unique verbs, and number of unique subject-verb combinations should be compared to current measures of linguistic growth (e.g., MLU and NDW) to see if they are better predictors of linguistic growth (Hadley, 2020; Kaiser et al., in prep.).
+
+# **References**
+
+1.  Curtis, P. R., Roberts, M. Y., Estabrook, R., & Kaiser, A. P. (2017). The longitudinal effects of early language intervention on Children's Problem Behaviors. *Child Development*, *90*(2), 576-592.
+
+2.  D. Wetherell, N. Botting, and G. Conti-Ramsden. (2007). Narrative skills in adolescents with a history of SLI in relation to non-verbal IQ scores. *Child Language Teaching and Therapy*, *23*(1), 95--113.
+
+3.  Ervin, M. (2001). SLI: what we know and why it matters. *American Speech and Hearing Association*, *6*(12).
+
+4.  Hadley, P. (2020). Exploring sentence diversity at the boundary of typical and impaired language abilities. *Journal of Speech, Language, and Hearing Research*, 63, 3236-3251.
+
+5.  Hadley, P., McKenna, M., & Rispoli, M. (2018). Sentence diversity in early language development: R*ecommendations for target selection and progress monitoring.*
+
+6.  *American Journal of Speech-Language Pathology*, 27, 553-565.
+
+7.  Hampton, L. H., Kaiser, A. P., & Roberts, M. R. (2017). One-year language outcomes in toddlers with language delays: An RCT follow-up. *Pediatrics*, *140*(5).
+
+8.  Kaiser, A., Roberts, M, & Hadley, P. (In Preparation). *Maximizing outcomes for preschoolers with developmental language disorder: Testing the effects of a sequentially targeted naturalistic intervention.*
+
+9.  National Institute of Health, Deafness and Other Communication Disorders. NIDCD Fact Sheet: Voice Speech and Language, Specific Language Impairment. U.S. Department of Health and Human Services.
+
+10. Roberts, M., & Kaiser, A. (2012). Assessing the effects of a parent-implemented language intervention for children with language impairments using empirical benchmarks: A pilot study. *Journal of Speech, Language, and Hearing Research*, *55*(6), 1655-1670.
+
+11. Rice, M. L., Hadley, P. A., & Alexander, A. (1993). Social biases toward children with specific language impairment: A correlative causal model of language limitations. *Applied Psycholinguistics*, 14, 445-471.
+
+    RStudio Team (2020). RStudio: Integrated Development for R. RStudio, PBC, Boston, MA URL <http://www.rstudio.com/>.
+
+12. Schneider, D., Hayward, D., Dub, R. V. (2006). Storytelling from pictures using the Edmonton Narrative Norms Instrument.
+
+13. Gillam, R., Pearson, N. (2004).Test of Narrative Language. Austin, TX: Pro-Ed Inc.
+
+\`\`\`
